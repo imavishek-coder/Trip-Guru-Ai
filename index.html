@@ -143,9 +143,13 @@
             const [locationError, setLocationError] = useState('');
             const [isLocationLoading, setIsLocationLoading] = useState(false);
 
+            // State for translation
+            const [selectedLanguage, setSelectedLanguage] = useState('Hindi');
+
 
             const interestOptions = ['Adventure', 'Beaches', 'Mountains', 'Foodie', 'History', 'Relaxation', 'Spiritual', 'Shopping'];
             const cardColors = ['#3b82f6', '#10b981', '#ef4444', '#f97316', '#8b5cf6', '#ec4899', '#6366f1'];
+            const languageOptions = ['Hindi', 'Bengali', 'Spanish', 'French', 'German', 'Japanese'];
 
             const handleInterestToggle = (interest) => {
                 setInterests(prev =>
@@ -223,6 +227,39 @@
                 }
             };
 
+            const handleTranslate = async () => {
+                if (!itinerary) return;
+
+                setIsFeatureLoading(true);
+                setModalTitle(`Plan translated to ${selectedLanguage}`);
+                setIsModalOpen(true);
+
+                let itineraryText = `Trip: ${itinerary.tripTitle}\nSummary: ${itinerary.tripSummary}\n\n`;
+                itinerary.dailyPlans.forEach(day => {
+                    itineraryText += `Day ${day.day}: ${day.title}\nSummary: ${day.summary}\nMorning: ${day.morning}\nAfternoon: ${day.afternoon}\nEvening: ${day.evening}\nFood: ${day.food}\nTravel Tip: ${day.travelTip}\n\n`;
+                });
+
+                const prompt = `Translate the following travel itinerary into ${selectedLanguage}. Keep the original structure and meaning.
+                
+                Itinerary:
+                ${itineraryText}
+                
+                Return the translated text as a single string, without any JSON formatting.
+                `;
+
+                try {
+                    const translatedText = await callGeminiAPI(prompt, false);
+                    const content = (
+                        <div className="text-gray-700 whitespace-pre-wrap">{translatedText}</div>
+                    );
+                    setModalContent(content);
+                } catch (err) {
+                    setModalContent(<p className="text-red-500">Could not translate the itinerary. Please try again.</p>);
+                } finally {
+                    setIsFeatureLoading(false);
+                }
+            };
+
             const generatePackingList = async () => {
                 setIsFeatureLoading(true);
                 setModalTitle("Aapki Packing List 🎒");
@@ -253,7 +290,7 @@
                     setIsFeatureLoading(false);
                 }
             };
-            
+
             const generateCulturalTips = async () => {
                 setIsFeatureLoading(true);
                 setModalTitle(`Cultural Tips for ${toDestination} 🙏`);
@@ -568,10 +605,10 @@
 
                     <div className="max-w-4xl mx-auto">
                         <header className="text-center mb-10">
-                            <h1 className="text-4xl md:text-5xl font-bold text-gray-800 tracking-tight">
+                            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-800 tracking-tight">
                                 Trip Guru <span className="text-blue-600">AI</span>
                             </h1>
-                            <p className="text-gray-500 mt-2 text-lg">Aapka personal AI-powered travel planner</p>
+                            <p className="text-gray-500 mt-2 text-md sm:text-lg">Aapka personal AI-powered travel planner</p>
                         </header>
 
                         <div className="bg-white p-6 sm:p-8 rounded-2xl custom-shadow mb-10">
@@ -650,13 +687,24 @@
                                         <button onClick={generateBudgetBreakdown} className="px-4 py-2 text-sm font-medium rounded-full text-white bg-lime-600 hover:bg-lime-700 transition-transform transform hover:scale-105">✨ Budget Breakdown</button>
                                         <button onClick={generatePhotoSpots} className="px-4 py-2 text-sm font-medium rounded-full text-white bg-cyan-600 hover:bg-cyan-700 transition-transform transform hover:scale-105">✨ Photo Spots</button>
                                         <button onClick={generateEmergencyInfo} className="px-4 py-2 text-sm font-medium rounded-full text-white bg-red-600 hover:bg-red-700 transition-transform transform hover:scale-105">✨ Emergency Info</button>
-                                        {/* --- NEW BUTTONS --- */}
                                         <button onClick={generateInsuranceInfo} className="px-4 py-2 text-sm font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-transform transform hover:scale-105">✨ Insurance Helper</button>
                                         <button onClick={generateLocalEvents} className="px-4 py-2 text-sm font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 transition-transform transform hover:scale-105">✨ Local Events</button>
                                         <button onClick={generateSouvenirIdeas} className="px-4 py-2 text-sm font-medium rounded-full text-white bg-orange-600 hover:bg-orange-700 transition-transform transform hover:scale-105">✨ Souvenir Ideas</button>
                                     </div>
-                                    <h2 className="text-3xl font-bold text-gray-800 mb-2">{itinerary.tripTitle}</h2>
+                                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">{itinerary.tripTitle}</h2>
                                     <p className="text-gray-600 mb-8 text-lg">{itinerary.tripSummary}</p>
+                                    
+                                    <div className="bg-gray-100 p-4 rounded-lg mb-6 flex flex-col sm:flex-row items-center gap-4">
+                                        <select 
+                                            value={selectedLanguage} 
+                                            onChange={(e) => setSelectedLanguage(e.target.value)}
+                                            className="w-full sm:w-auto p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            {languageOptions.map(lang => <option key={lang} value={lang}>{lang}</option>)}
+                                        </select>
+                                        <button onClick={handleTranslate} className="w-full sm:w-auto px-5 py-2 text-base font-medium rounded-full text-white bg-gray-700 hover:bg-gray-800 transition">Translate Plan</button>
+                                    </div>
+
                                     <div className="space-y-6">
                                         {itinerary.dailyPlans.map((day, index) => (
                                             <div key={day.day} className="iti-card p-5 rounded-lg" style={{ borderColor: cardColors[index % cardColors.length] }}>
