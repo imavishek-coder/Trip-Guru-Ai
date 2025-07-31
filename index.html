@@ -160,7 +160,7 @@
             };
 
             const openGoogleSearch = (query) => {
-                window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+                window.open(query, '_blank');
             };
             
             // Generic function to call Gemini API
@@ -213,7 +213,8 @@
                     Budget: Approximately ₹${Number(budget).toLocaleString('en-IN')} per person
                     Interests: ${interests.join(', ')}
                     Traveler Type: ${isCoupleTrip ? "Couple" : "General"}
-                    Instructions: ${couplePromptPart} Provide a detailed day-by-day plan with specific names of local places. For each day, include a 'Travel Tip' section on how to travel between spots. Suggest local food. Return ONLY as a JSON object: {"tripTitle": "...", "tripSummary": "...", "dailyPlans": [{"day": 1, "title": "...", "summary": "...", "morning": "...", "afternoon": "...", "evening": "...", "food": "...", "travelTip": "..."}]}.
+                    Instructions: ${couplePromptPart} Provide a detailed day-by-day plan with specific names of local places. For each day, include a 'Travel Tip' section on how to travel between spots. Suggest local food. Also, provide an approximate travel distance between the from and to cities.
+                    Return ONLY as a JSON object: {"tripTitle": "...", "tripSummary": "...", "approximateDistance": "e.g., 1500 km", "dailyPlans": [{"day": 1, "title": "...", "summary": "...", "morning": "...", "afternoon": "...", "evening": "...", "food": "...", "travelTip": "..."}]}.
                 `;
 
                 try {
@@ -290,7 +291,7 @@
                     setIsFeatureLoading(false);
                 }
             };
-
+            
             const generateCulturalTips = async () => {
                 setIsFeatureLoading(true);
                 setModalTitle(`Cultural Tips for ${toDestination} 🙏`);
@@ -667,8 +668,8 @@
 
                             {location && (
                                 <div className="mt-4 flex flex-wrap gap-4 justify-center">
-                                    <button onClick={() => openGoogleSearch(`hotels near me`)} className="px-5 py-2 text-base font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-transform transform hover:scale-105">🏨 Find Nearby Hotels</button>
-                                    <button onClick={() => openGoogleSearch(`couple friendly hotels near me`)} className="px-5 py-2 text-base font-medium rounded-full text-white bg-pink-600 hover:bg-pink-700 transition-transform transform hover:scale-105">❤️ Find Couple Friendly Hotels</button>
+                                    <button onClick={() => openGoogleSearch(`https://www.google.com/search?q=hotels+near+me`)} className="px-5 py-2 text-base font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-transform transform hover:scale-105">🏨 Find Nearby Hotels</button>
+                                    <button onClick={() => openGoogleSearch(`https://www.google.com/search?q=couple+friendly+hotels+near+me`)} className="px-5 py-2 text-base font-medium rounded-full text-white bg-pink-600 hover:bg-pink-700 transition-transform transform hover:scale-105">❤️ Find Couple Friendly Hotels</button>
                                 </div>
                             )}
                         </div>
@@ -691,6 +692,20 @@
                                         <button onClick={generateLocalEvents} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 transition-transform transform hover:scale-105">✨ Local Events</button>
                                         <button onClick={generateSouvenirIdeas} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-orange-600 hover:bg-orange-700 transition-transform transform hover:scale-105">✨ Souvenir Ideas</button>
                                     </div>
+                                    
+                                    <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl mb-8">
+                                        <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Kaise Pahunchein?</h3>
+                                        <div className="text-center mb-5">
+                                            <p className="text-lg text-gray-700">Anumanit Doori: <span className="font-bold text-blue-600">{itinerary.approximateDistance || 'N/A'}</span></p>
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                                            <button onClick={() => openGoogleSearch(`https://www.google.com/flights?q=flights+from+${fromDestination}+to+${toDestination}`)} className="p-3 bg-white rounded-lg shadow hover:shadow-md transition">✈️<span className="block text-sm font-medium mt-1">Flights</span></button>
+                                            <button onClick={() => openGoogleSearch(`https://www.google.com/search?q=trains+from+${fromDestination}+to+${toDestination}`)} className="p-3 bg-white rounded-lg shadow hover:shadow-md transition">🚆<span className="block text-sm font-medium mt-1">Trains</span></button>
+                                            <button onClick={() => openGoogleSearch(`https://www.google.com/search?q=buses+from+${fromDestination}+to+${toDestination}`)} className="p-3 bg-white rounded-lg shadow hover:shadow-md transition">🚌<span className="block text-sm font-medium mt-1">Buses</span></button>
+                                            <button onClick={() => openGoogleSearch(`https://www.google.com/maps/dir/${fromDestination}/${toDestination}`)} className="p-3 bg-white rounded-lg shadow hover:shadow-md transition">🗺️<span className="block text-sm font-medium mt-1">View on Map</span></button>
+                                        </div>
+                                    </div>
+
                                     <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">{itinerary.tripTitle}</h2>
                                     <p className="text-gray-600 mb-8 text-lg">{itinerary.tripSummary}</p>
                                     
@@ -718,17 +733,17 @@
                                                     <p className="mt-2 p-3 bg-blue-50 rounded-lg"><strong>🚌 Travel Tip:</strong> {day.travelTip}</p>
                                                 </div>
                                                 <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-3">
-                                                    <button onClick={() => openGoogleSearch(`Best budget hotels in ${toDestination}`)} className="flex items-center px-3 py-1.5 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition">
+                                                    <button onClick={() => openGoogleSearch(`https://www.google.com/search?q=Best+budget+hotels+in+${toDestination}`)} className="flex items-center px-3 py-1.5 text-sm bg-green-100 text-green-800 rounded-full hover:bg-green-200 transition">
                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2l-7 7-7-7M19 10v10a1 1 0 01-1 1h-3" /></svg>
                                                         Find Hotels
                                                     </button>
                                                     {searchWasCoupleTrip && (
-                                                        <button onClick={() => openGoogleSearch(`Couple friendly hotels in ${toDestination}`)} className="flex items-center px-3 py-1.5 text-sm bg-pink-100 text-pink-800 rounded-full hover:bg-pink-200 transition">
+                                                        <button onClick={() => openGoogleSearch(`https://www.google.com/search?q=Couple+friendly+hotels+in+${toDestination}`)} className="flex items-center px-3 py-1.5 text-sm bg-pink-100 text-pink-800 rounded-full hover:bg-pink-200 transition">
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
                                                             Couple Friendly Hotels
                                                         </button>
                                                     )}
-                                                    <button onClick={() => openGoogleSearch(`Top tourist places to visit in ${toDestination}`)} className="flex items-center px-3 py-1.5 text-sm bg-purple-100 text-purple-800 rounded-full hover:bg-purple-200 transition">
+                                                    <button onClick={() => openGoogleSearch(`https://www.google.com/search?q=Top+tourist+places+to+visit+in+${toDestination}`)} className="flex items-center px-3 py-1.5 text-sm bg-purple-100 text-purple-800 rounded-full hover:bg-purple-200 transition">
                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                                                         Explore Places
                                                     </button>
