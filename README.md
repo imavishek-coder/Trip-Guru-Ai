@@ -1,7 +1,7 @@
 Trip Guru AI ✈️
 Trip Guru AI ek smart, AI-powered travel planner hai jo aapke liye personalized itineraries banata hai. Bas apni destination, budget, aur interests daalein, aur baaki sab AI par chhod dein!
 
-Live Project Link: [Yahan apne GitHub Pages ka live link daalein]
+Live Project Link: https://trip-guru-ai.vercel.app/
 
 (Pro Tip: Apne live project ka ek accha sa screenshot lekar is link ko replace kar dein)
 
@@ -47,20 +47,10 @@ AI: Google Gemini API
 
 APIs: Browser Geolocation API
 
-🚀 How to Run Locally
-Is project ko file:/// protocol par direct open karne se API calls kaam nahi karengi. Isey chalane ke liye ek local server ki zaroorat hai.
+🚀 How to Run
+Yeh project GitHub Pages par live hai. Bas upar diye gaye Live Project Link par click karein aur aap isey istemal kar sakte hain.
 
-Sabse Aasan Tareeka (Using VS Code Live Server):
-
-Is repository ko clone karein ya saari files (index.html, style.css, script.js) ek folder mein download karein.
-
-Folder ko Visual Studio Code mein open karein.
-
-VS Code mein "Live Server" extension install karein.
-
-index.html file par right-click karein aur "Open with Live Server" select karein.
-
-Aapka project browser mein http://127.0.0.1:5500 jaise URL par khul jaayega aur sab kuch theek se chalega.
+Agar aap isey apne computer par chalana chahte hain, toh index.html file ko VS Code Live Server jaise local server par run karein, kyunki browser security ke kaaran direct file:/// se API calls kaam nahi karti hain.
 
 👨‍💻 Created by
 Avishek Giri
