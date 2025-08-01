@@ -183,8 +183,22 @@
                 if (result.candidates && result.candidates.length > 0) {
                     const rawText = result.candidates[0].content.parts[0].text;
                     if (expectJson) {
-                        const cleanedText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                        return JSON.parse(cleanedText);
+                        const startIndex = rawText.indexOf('{');
+                        const endIndex = rawText.lastIndexOf('}');
+                        if (startIndex > -1 && endIndex > -1) {
+                            let jsonString = rawText.substring(startIndex, endIndex + 1);
+                            try {
+                                // Attempt to fix common JSON errors like trailing commas
+                                jsonString = jsonString.replace(/,\s*([}\]])/g, '$1');
+                                return JSON.parse(jsonString);
+                            } catch (e) {
+                                console.error("Failed to parse cleaned JSON:", e);
+                                console.error("Problematic JSON string:", jsonString); // Log the string for debugging
+                                throw new Error("Received invalid JSON from AI.");
+                            }
+                        } else {
+                           throw new Error("No JSON object found in AI response.");
+                        }
                     }
                     return rawText;
                 } else {
@@ -206,15 +220,24 @@
                 const couplePromptPart = isCoupleTrip ? "This is a romantic trip for a couple. Please include couple-friendly activities, romantic spots, and suggestions for private dining." : "";
 
                 const prompt = `
-                    You are an expert travel planner for India named Trip Guru. Create a personalized travel itinerary.
+                    You are an expert travel planner for India named Trip Guru. Create a personalized travel itinerary in HINGLISH (mix of Hindi and English).
                     From City: ${fromDestination}
                     To City: ${toDestination}
                     Duration: ${days} days
                     Budget: Approximately ₹${Number(budget).toLocaleString('en-IN')} per person
                     Interests: ${interests.join(', ')}
                     Traveler Type: ${isCoupleTrip ? "Couple" : "General"}
-                    Instructions: ${couplePromptPart} Provide a detailed day-by-day plan with specific names of local places. For each day, include a 'Travel Tip' section on how to travel between spots. Suggest local food. Also, provide an approximate travel distance between the from and to cities.
-                    Return ONLY as a JSON object: {"tripTitle": "...", "tripSummary": "...", "approximateDistance": "e.g., 1500 km", "dailyPlans": [{"day": 1, "title": "...", "summary": "...", "morning": "...", "afternoon": "...", "evening": "...", "food": "...", "travelTip": "..."}]}.
+                    Instructions: ${couplePromptPart} 
+                    1. Provide the entire plan in Hinglish.
+                    2. Provide a detailed day-by-day plan with specific names of local places.
+                    3. For each day, include a 'Travel Tip' section on how to travel between spots.
+                    4. Suggest local food.
+                    5. Provide an 'approximateDistance' in this format "XXXX Kms".
+                    6. Calculate a 'totalCostEstimate' which is the per person budget multiplied by the number of days. Format it like "₹XX,XXX for 1 person".
+                    7. Provide a 'totalTimeEstimate' for one-way travel between the cities in a short format (e.g., "≈ 12 Hrs by Train").
+                    8. Suggest 2-3 'nearbySuggestions' (places near the main destination that can also be visited).
+                    9. Provide a 'budgetBreakdown' object with keys like "Khana (Food)", "Ghoomna (Transport)", "Activities", "Shopping" and their suggested daily amounts in INR based on the per person budget.
+                    Return ONLY as a JSON object with Hinglish content: {"tripTitle": "...", "tripSummary": "...", "approximateDistance": "...", "totalCostEstimate": "...", "totalTimeEstimate": "...", "nearbySuggestions": [{"name": "...", "description": "..."}], "budgetBreakdown": {"Khana (Food)": "...", "Ghoomna (Transport)": "..."}, "dailyPlans": [{"day": 1, "title": "Pahla Din: Arrival aur Masti", "summary": "...", "morning": "...", "afternoon": "...", "evening": "...", "food": "...", "travelTip": "..."}]}.
                 `;
 
                 try {
@@ -351,226 +374,6 @@
                     setIsFeatureLoading(false);
                 }
             };
-
-            const generateSocialPostcard = async () => {
-                setIsFeatureLoading(true);
-                setModalTitle(`Your Social Postcard 💌`);
-                setIsModalOpen(true);
-
-                const prompt = `
-                    Write a short, exciting, and beautiful social media post or postcard text for someone about to travel from ${fromDestination} to ${toDestination} for ${days} days. Mention the excitement for the trip. Keep it under 280 characters.
-                    Return the response as a single string of text, without any JSON formatting.
-                `;
-                 try {
-                    const postcardText = await callGeminiAPI(prompt, false);
-                    const content = (
-                        <div>
-                            <textarea id="postcard-text" readOnly className="w-full h-40 p-3 border rounded-lg bg-gray-50 text-gray-700" value={postcardText}></textarea>
-                            <button onClick={() => {
-                                const textArea = document.getElementById('postcard-text');
-                                textArea.select();
-                                document.execCommand('copy');
-                                alert('Postcard text copied to clipboard!');
-                            }} className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                                Copy Text
-                            </button>
-                        </div>
-                    );
-                    setModalContent(content);
-                } catch (err) {
-                    setModalContent(<p className="text-red-500">Could not generate the postcard. Please try again.</p>);
-                } finally {
-                    setIsFeatureLoading(false);
-                }
-            };
-
-            const generateBudgetBreakdown = async () => {
-                setIsFeatureLoading(true);
-                setModalTitle(`Daily Budget for ${toDestination} 💰`);
-                setIsModalOpen(true);
-
-                const prompt = `
-                    For a trip to ${toDestination} with a daily budget of ₹${(budget / days).toFixed(0)}, provide a suggested budget breakdown per person.
-                    Return the response ONLY as a JSON object with keys like "Food", "Transport", "Activities", "Shopping", with their suggested daily amounts in INR.
-                `;
-                try {
-                    const breakdown = await callGeminiAPI(prompt);
-                    const content = (
-                        <div className="space-y-3">
-                            <p className="text-gray-600">Here's a suggested daily breakdown for your budget of <span className="font-bold">₹{Number(budget / days).toLocaleString('en-IN')}</span> per person:</p>
-                            <ul className="list-none space-y-2">
-                                {Object.entries(breakdown).map(([category, amount]) => (
-                                    <li key={category} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
-                                        <span className="font-medium text-gray-700">{category}</span>
-                                        <span className="font-bold text-green-600">₹{Number(amount).toLocaleString('en-IN')}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    );
-                    setModalContent(content);
-                } catch (err) {
-                    setModalContent(<p className="text-red-500">Could not generate the budget breakdown. Please try again.</p>);
-                } finally {
-                    setIsFeatureLoading(false);
-                }
-            };
-
-            const generatePhotoSpots = async () => {
-                setIsFeatureLoading(true);
-                setModalTitle(`Best Photo Spots in ${toDestination} 📸`);
-                setIsModalOpen(true);
-
-                const prompt = `
-                    Based on a trip to ${toDestination}, India, list the top 5 most photogenic spots. For each spot, provide a short description and the best time to visit for photos.
-                    Return the response ONLY as a JSON object in the format: {"spots": [{"name": "Spot Name", "description": "Short description.", "best_time": "e.g., Sunrise"}]}.
-                `;
-                try {
-                    const data = await callGeminiAPI(prompt);
-                    const content = (
-                        <div className="space-y-4">
-                            {data.spots.map((spot, index) => (
-                                <div key={index} className="border-b pb-3">
-                                    <h3 className="text-lg font-semibold text-gray-700">{spot.name}</h3>
-                                    <p className="text-gray-600 mt-1">{spot.description}</p>
-                                    <p className="text-sm text-blue-600 font-medium mt-2">Best Time: {spot.best_time}</p>
-                                </div>
-                            ))}
-                        </div>
-                    );
-                    setModalContent(content);
-                } catch (err) {
-                    setModalContent(<p className="text-red-500">Could not generate photo spot suggestions. Please try again.</p>);
-                } finally {
-                    setIsFeatureLoading(false);
-                }
-            };
-
-            const generateEmergencyInfo = async () => {
-                setIsFeatureLoading(true);
-                setModalTitle(`Emergency Info for ${toDestination} 🆘`);
-                setIsModalOpen(true);
-
-                const prompt = `
-                    For a tourist in ${toDestination}, India, provide crucial emergency information.
-                    Return ONLY a JSON object with keys 'Contacts' (an object with 'Police', 'Ambulance', 'Tourist Helpline') and 'Phrases' (an object with English phrases and their Hindi translations like 'Help', 'I am lost', 'I need a doctor').
-                `;
-                try {
-                    const data = await callGeminiAPI(prompt);
-                    const content = (
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-2">Important Contacts</h3>
-                                <ul className="list-none space-y-1">
-                                    {Object.entries(data.Contacts).map(([name, number]) => (
-                                        <li key={name} className="flex justify-between"><span>{name}:</span> <span className="font-mono font-bold">{number}</span></li>
-                                    ))}
-                                </ul>
-                            </div>
-                             <div>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-2">Helpful Phrases</h3>
-                                <ul className="list-none space-y-1">
-                                    {Object.entries(data.Phrases).map(([english, local]) => (
-                                        <li key={english} className="flex justify-between"><span>{english}:</span> <span className="font-medium">{local}</span></li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    );
-                    setModalContent(content);
-                } catch (err) {
-                    setModalContent(<p className="text-red-500">Could not generate emergency info. Please try again.</p>);
-                } finally {
-                    setIsFeatureLoading(false);
-                }
-            };
-
-            const generateInsuranceInfo = async () => {
-                setIsFeatureLoading(true);
-                setModalTitle(`Travel Insurance Helper 🛡️`);
-                setIsModalOpen(true);
-
-                const prompt = `
-                    Explain in simple terms the main types of travel insurance coverage a person should consider for a ${days}-day domestic trip in India to ${toDestination}.
-                    Return the response ONLY as a JSON object in the format: {"insurance_info": [{"type": "Coverage Type", "explanation": "Simple explanation."}]}.
-                `;
-                try {
-                    const data = await callGeminiAPI(prompt);
-                    const content = (
-                        <div className="space-y-4">
-                            {data.insurance_info.map((info, index) => (
-                                <div key={index}>
-                                    <h3 className="text-lg font-semibold text-gray-700">{info.type}</h3>
-                                    <p className="text-gray-600">{info.explanation}</p>
-                                </div>
-                            ))}
-                        </div>
-                    );
-                    setModalContent(content);
-                } catch (err) {
-                    setModalContent(<p className="text-red-500">Could not generate insurance information. Please try again.</p>);
-                } finally {
-                    setIsFeatureLoading(false);
-                }
-            };
-
-            const generateLocalEvents = async () => {
-                setIsFeatureLoading(true);
-                setModalTitle(`Local Events in ${toDestination} 🎉`);
-                setIsModalOpen(true);
-
-                const prompt = `
-                    List any potential local festivals, concerts, or significant events happening in ${toDestination}, India during a generic ${days}-day period.
-                    Return the response ONLY as a JSON object in the format: {"events": [{"name": "Event Name", "description": "Short description of the event and its significance."}]}. If no specific major events are known, list some recurring local markets or cultural shows.
-                `;
-                try {
-                    const data = await callGeminiAPI(prompt);
-                    const content = (
-                        <div className="space-y-4">
-                            {data.events.map((event, index) => (
-                                <div key={index}>
-                                    <h3 className="text-lg font-semibold text-gray-700">{event.name}</h3>
-                                    <p className="text-gray-600">{event.description}</p>
-                                </div>
-                            ))}
-                        </div>
-                    );
-                    setModalContent(content);
-                } catch (err) {
-                    setModalContent(<p className="text-red-500">Could not find local event information. Please try again.</p>);
-                } finally {
-                    setIsFeatureLoading(false);
-                }
-            };
-
-            const generateSouvenirIdeas = async () => {
-                setIsFeatureLoading(true);
-                setModalTitle(`Souvenir Ideas from ${toDestination} 🎁`);
-                setIsModalOpen(true);
-
-                const prompt = `
-                    Suggest 5 unique and authentic souvenirs to buy from ${toDestination}, India. For each, provide a short description.
-                    Return the response ONLY as a JSON object in the format: {"souvenirs": [{"name": "Souvenir Name", "description": "Short description."}]}.
-                `;
-                try {
-                    const data = await callGeminiAPI(prompt);
-                    const content = (
-                        <div className="space-y-4">
-                            {data.souvenirs.map((souvenir, index) => (
-                                <div key={index}>
-                                    <h3 className="text-lg font-semibold text-gray-700">{souvenir.name}</h3>
-                                    <p className="text-gray-600">{souvenir.description}</p>
-                                </div>
-                            ))}
-                        </div>
-                    );
-                    setModalContent(content);
-                } catch (err) {
-                    setModalContent(<p className="text-red-500">Could not generate souvenir ideas. Please try again.</p>);
-                } finally {
-                    setIsFeatureLoading(false);
-                }
-            };
             
             const handleFindNearbyHotels = () => {
                 setIsLocationLoading(true);
@@ -625,11 +428,11 @@
                                     </div>
                                     <div>
                                         <label htmlFor="days" className="block text-sm font-medium text-gray-700 mb-1">Kitne Din ke liye</label>
-                                        <input type="number" id="days" min="1" value={days} onChange={(e) => setDays(e.target.value)} placeholder="e.g., 5" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" />
+                                        <input type="number" id="days" min="1" value={days} onChange={(e) => setDays(Number(e.target.value))} placeholder="e.g., 5" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" />
                                     </div>
                                     <div>
                                         <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">Budget (per person, in ₹)</label>
-                                        <input type="number" id="budget" min="500" step="100" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="e.g., 20000" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" />
+                                        <input type="number" id="budget" min="500" step="100" value={budget} onChange={(e) => setBudget(Number(e.target.value))} placeholder="e.g., 20000" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" />
                                     </div>
                                 </div>
                                 <div className="mt-6">
@@ -684,19 +487,19 @@
                                         <button onClick={generatePackingList} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-indigo-600 hover:bg-indigo-700 transition-transform transform hover:scale-105">✨ Packing List</button>
                                         <button onClick={generateCulturalTips} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-teal-600 hover:bg-teal-700 transition-transform transform hover:scale-105">✨ Cultural Tips</button>
                                         <button onClick={generateMustTryDishes} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-amber-600 hover:bg-amber-700 transition-transform transform hover:scale-105">✨ Local Dishes</button>
-                                        <button onClick={generateSocialPostcard} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-rose-600 hover:bg-rose-700 transition-transform transform hover:scale-105">✨ Social Postcard</button>
-                                        <button onClick={generateBudgetBreakdown} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-lime-600 hover:bg-lime-700 transition-transform transform hover:scale-105">✨ Budget Breakdown</button>
-                                        <button onClick={generatePhotoSpots} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-cyan-600 hover:bg-cyan-700 transition-transform transform hover:scale-105">✨ Photo Spots</button>
-                                        <button onClick={generateEmergencyInfo} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-red-600 hover:bg-red-700 transition-transform transform hover:scale-105">✨ Emergency Info</button>
-                                        <button onClick={generateInsuranceInfo} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-transform transform hover:scale-105">✨ Insurance Helper</button>
-                                        <button onClick={generateLocalEvents} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-purple-600 hover:bg-purple-700 transition-transform transform hover:scale-105">✨ Local Events</button>
-                                        <button onClick={generateSouvenirIdeas} className="flex-grow sm:flex-grow-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-full text-white bg-orange-600 hover:bg-orange-700 transition-transform transform hover:scale-105">✨ Souvenir Ideas</button>
                                     </div>
                                     
                                     <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl mb-8">
                                         <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Kaise Pahunchein?</h3>
-                                        <div className="text-center mb-5">
-                                            <p className="text-lg text-gray-700">Anumanit Doori: <span className="font-bold text-blue-600">{itinerary.approximateDistance || 'N/A'}</span></p>
+                                        <div className="text-center mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-sm text-gray-500">Anumanit Doori</p>
+                                                <p className="text-lg font-bold text-blue-600">{itinerary.approximateDistance || 'N/A'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-gray-500">Anumanit Samay</p>
+                                                <p className="text-lg font-bold text-blue-600">{itinerary.totalTimeEstimate || 'N/A'}</p>
+                                            </div>
                                         </div>
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                                             <button onClick={() => openGoogleSearch(`https://www.google.com/flights?q=flights+from+${fromDestination}+to+${toDestination}`)} className="p-3 bg-white rounded-lg shadow hover:shadow-md transition">✈️<span className="block text-sm font-medium mt-1">Flights</span></button>
@@ -751,6 +554,38 @@
                                             </div>
                                         ))}
                                     </div>
+                                    
+                                    {itinerary.nearbySuggestions && itinerary.nearbySuggestions.length > 0 && (
+                                        <div className="mt-8">
+                                            <h3 className="text-2xl font-bold text-gray-800 mb-4">Aas-Paas ke Suggestions</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {itinerary.nearbySuggestions.map((place, index) => (
+                                                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                                                        <h4 className="font-bold text-gray-700">{place.name}</h4>
+                                                        <p className="text-sm text-gray-600">{place.description}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {itinerary.budgetBreakdown && (
+                                        <div className="bg-lime-50 border border-lime-200 p-5 rounded-xl mt-8">
+                                            <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Anumanit Kharcha Breakdown 💰</h3>
+                                            <div className="text-center mb-4">
+                                                 <p className="text-lg text-gray-700">Total Anumanit Kharcha: <span className="font-bold text-lime-600">{itinerary.totalCostEstimate || 'N/A'}</span></p>
+                                                 <p className="text-sm text-gray-500">(per person for {days} days)</p>
+                                            </div>
+                                            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {Object.entries(itinerary.budgetBreakdown).map(([category, amount]) => (
+                                                    <li key={category} className="bg-white p-3 rounded-lg flex justify-between items-center sm:block sm:text-center">
+                                                        <span className="font-medium text-gray-700 sm:block">{category}</span>
+                                                        <span className="font-bold text-lime-600 sm:block sm:mt-1">₹{amount} / day</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
